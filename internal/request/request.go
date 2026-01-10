@@ -51,11 +51,11 @@ func parseRequestLine(b string) (*RequestLine, string, error) {
 	return  rl, restOfMsg, nil
 }
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	data, err := io.Reader(reader)
+	data, err := io.ReadAll(reader)
 	if err!= nil {
 		return nil, errors.Join(
 			fmt.Errorf("unable to io.ReadAll"),
-			err
+			err,
 		)
 	}
 
