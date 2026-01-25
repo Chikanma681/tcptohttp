@@ -18,11 +18,9 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 		for {
 			data := make([]byte, 8)
 			n, err := f.Read(data)
-
 			if err != nil {
 				break
 			}
-
 			data = data[:n]
 			if i := bytes.IndexByte(data, '\n'); i != -1 {
 				str += string(data[:i])
