@@ -1,11 +1,10 @@
 package request
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
-	"bytes"
-	"strings"
 )
 
 type (
@@ -33,8 +32,9 @@ var (
 )
 
 const (
-	StateInit parserState = "init"
-	StateDone parserState = "done"
+	StateInit  parserState = "init"
+	StateDone  parserState = "done"
+	StateError parserState = "error"
 )
 
 func parseRequestLine(b []byte) (*RequestLine, int, error) {
@@ -44,7 +44,7 @@ func parseRequestLine(b []byte) (*RequestLine, int, error) {
 	}
 
 	startLine := b[:idx]
-	readN := idx+len(SEPARATOR)
+	readN := idx + len(SEPARATOR)
 
 	parts := bytes.Split(startLine, []byte(" "))
 
@@ -52,7 +52,7 @@ func parseRequestLine(b []byte) (*RequestLine, int, error) {
 		return nil, 0, ERROR_BAD_REQUEST_LINE
 	}
 
-	httpParts := bytes.Split(parts[2],[]byte("/"))
+	httpParts := bytes.Split(parts[2], []byte("/"))
 
 	if len(httpParts) != 2 || string(httpParts[0]) != "HTTP" || string(httpParts[1]) != "1.1" {
 		return nil, 0, ERROR_BAD_REQUEST_LINE
@@ -61,7 +61,7 @@ func parseRequestLine(b []byte) (*RequestLine, int, error) {
 	rl := &RequestLine{
 		Method:        string(parts[0]),
 		RequestTarget: string(parts[1]),
-		HttpVersion:   string(parts[2]),
+		HttpVersion:   string(httpParts[1]),
 	}
 
 	return rl, readN, nil
@@ -69,31 +69,31 @@ func parseRequestLine(b []byte) (*RequestLine, int, error) {
 
 func (r *Request) parse(data []byte) (int, error) {
 	read := 0
-	outer:
+outer:
 	for {
 		switch r.state {
 		case StateError:
-			return 0, error
+			return 0, errors.New("error state")
 		case StateInit:
-			rl, n, err := parseRequestLine((data[read:]))
+			rl, n, err := parseRequestLine(data[read:])
 			if err != nil {
-				r.state = StateError
+				r.state = StateErro
 				return 0, err
 			}
 
 			if n == 0 {
-					break outer
+				break outer
 			}
 			r.RequestLine = *rl
 			read += n
-			
+
 			r.state = StateDone
 
 		case StateDone:
 			break outer
 		}
+	}
 	return read, nil
-}
 }
 
 func (r *Request) done() bool {
@@ -122,15 +122,4 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		bufLen -= readN
 	}
 	return request, nil
-}
-
-	str = string(data)
-	rl, _, err := parseRequestLine(str)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Request{
-		RequestLine: *rl,
-	}, err
 }
