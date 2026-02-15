@@ -77,7 +77,7 @@ outer:
 		case StateInit:
 			rl, n, err := parseRequestLine(data[read:])
 			if err != nil {
-				r.state = StateErro
+				r.state = StateError
 				return 0, err
 			}
 
