@@ -101,8 +101,8 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 
 		read += idx + len(rn)
 		data = data[idx+len(rn):]
-		h.headers[strings.ToLower(string(name))] = string(value)
-}
+		h.Set(string(name), string(value))
+	}
 
 	return read, done, nil
 }
