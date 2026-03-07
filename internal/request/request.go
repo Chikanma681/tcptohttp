@@ -89,6 +89,11 @@ func parseRequestLine(b []byte) (*RequestLine, int, error) {
 	return rl, readN, nil
 }
 
+func (r *Request) hasBody() bool {
+	length := getInt(r.Headers, "content-length", 0)
+	return length != 0
+}
+
 func (r *Request) parse(data []byte) (int, error) {
 	read := 0
 outer:
@@ -122,14 +127,17 @@ outer:
 			}
 			read += n
 			if done {
-				r.state = StateBody
+				if r.hasBody() {
+					r.state = StateBody
+				} else {
+					r.state = StateDone
+				}
 			}
 		case StateBody:
 			// he implemented a hasBody function that is used in StateHeaders
 			length := getInt(r.Headers, "content-length", 0)
 			if length == 0 {
-				r.state = StateDone
-				break outer
+				panic("chunked not implemented")
 			}
 
 			remaining := min(length-len(r.Body), len(currentData))
