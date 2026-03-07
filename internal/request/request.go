@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 
 	"tcp/internal/headers"
 )
@@ -19,6 +21,7 @@ type (
 	Request struct {
 		RequestLine RequestLine
 		Headers     headers.Headers
+		Body        string
 		state       parserState
 	}
 )
@@ -26,21 +29,35 @@ type (
 func newRequest() *Request {
 	return &Request{
 		state:   StateInit,
-		Headers: headers.NewHeaders(),
+		Headers: *headers.NewHeaders(),
+		Body:    "",
 	}
 }
 
 const (
-	StateInit     parserState = "init"
-	StateHeaders  parserState = "headers"
-	StateDone     parserState = "done"
-	StateError    parserState = "error"
+	StateInit    parserState = "init"
+	StateHeaders parserState = "headers"
+	StateBody    parserState = "body"
+	StateDone    parserState = "done"
+	StateError   parserState = "error"
 )
 
 var (
 	ERROR_BAD_REQUEST_LINE = fmt.Errorf("malformed request-line")
 	SEPARATOR              = []byte("\r\n")
 )
+
+func getInt(headers headers.Headers, name string, defaultValue int) int {
+	value, exist := headers.Get(strings.ToLower(name))
+	if !exist {
+		return defaultValue
+	}
+	valueInt, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	return valueInt
+}
 
 func parseRequestLine(b []byte) (*RequestLine, int, error) {
 	idx := bytes.Index(b, SEPARATOR)
@@ -105,14 +122,29 @@ outer:
 			}
 			read += n
 			if done {
+				r.state = StateBody
+			}
+		case StateBody:
+			// he implemented a hasBody function that is used in StateHeaders
+			length := getInt(r.Headers, "content-length", 0)
+			if length == 0 {
 				r.state = StateDone
+				break outer
+			}
+
+			remaining := min(length-len(r.Body), len(currentData))
+			r.Body += string(currentData[:remaining])
+			read += remaining
+
+			if remaining == 0 {
+				r.state = StateDone
+				break outer
 			}
 		case StateDone:
 			break outer
 		default:
 			panic("somehow we programmed poorly and got into an invalid state")
 		}
-
 	}
 	return read, nil
 }
